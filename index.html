@@ -231,8 +231,9 @@
 
       .wall.layout-equal {
         grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
-        align-content: stretch;
-        align-items: stretch;
+        justify-items: center;
+        align-content: center;
+        align-items: center;
         grid-auto-rows: minmax(0, 1fr);
       }
 
@@ -271,7 +272,7 @@
         min-width: 0;
         min-height: 0;
         display: grid;
-        grid-template-rows: auto 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
         overflow: hidden;
         border: 1px solid var(--line);
         border-radius: 0.5rem;
@@ -282,8 +283,8 @@
       }
 
       .wall.layout-equal .feed {
-        width: 100%;
-        height: 100%;
+        width: min(100%, var(--feed-width, 100%));
+        height: var(--feed-height, auto);
         aspect-ratio: auto;
         max-height: none;
       }
@@ -379,6 +380,10 @@
           #020302;
         background-size: 1.4rem 1.4rem;
         overflow: hidden;
+      }
+
+      .wall.layout-equal .frame-wrap {
+        height: var(--feed-video-height, auto);
       }
 
       iframe {
@@ -609,7 +614,7 @@
         layout: params.get("layout") || "equal",
         focus: Number(params.get("focus") || 0),
         sourceTemplate: params.get("source") || defaultSourceTemplate,
-        cropTop: Number(params.get("cropTop") || 132),
+        cropTop: Number(params.get("cropTop") || 0),
       };
 
       function parseIds() {
@@ -691,7 +696,7 @@
           `当前轮次 ${state.turnId}，${state.ids.length} 场完整显示：${state.ids.join(" / ")}`;
 
         observeFrames();
-        requestAnimationFrame(fitFramesToCells);
+        requestAnimationFrame(resizeLiveWindows);
         updateUrl();
       }
 
@@ -740,7 +745,7 @@
         document.querySelectorAll("[data-layout]").forEach((button) => {
           button.classList.toggle("active", button.dataset.layout === layout);
         });
-        requestAnimationFrame(fitFramesToCells);
+        requestAnimationFrame(resizeLiveWindows);
         updateUrl();
         if (changed) {
           trackEvent("change_layout", { selected_layout: layout });
@@ -800,12 +805,56 @@
         const isFill = feed.classList.toggle("fill");
         const note = feed.querySelector(".overlay-note");
         if (note) note.textContent = isFill ? "区域内全屏显示" : "完整显示直播画面";
-        fitFramesToCells();
+        resizeLiveWindows();
         trackEvent("toggle_fit", {
           schedule_id: state.ids[index],
           match_index: index,
           fit_mode: isFill ? "fill" : "contain",
         });
+      }
+
+      function gridRows(count) {
+        if (state.layout === "stack") return count;
+        if (count === 1 || count === 2 || count === 3) return 1;
+        return 2;
+      }
+
+      function resizeLiveWindows() {
+        sizeFeedCards();
+        fitFramesToCells();
+      }
+
+      function sizeFeedCards() {
+        const wall = document.getElementById("wall");
+        if (!wall || state.layout !== "equal") {
+          wall?.style.removeProperty("--feed-width");
+          wall?.style.removeProperty("--feed-height");
+          wall?.style.removeProperty("--feed-video-height");
+          return;
+        }
+
+        const rect = wall.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+
+        const styles = window.getComputedStyle(wall);
+        const colGap = Number.parseFloat(styles.columnGap) || 0;
+        const rowGap = Number.parseFloat(styles.rowGap) || 0;
+        const cols = gridColumns(state.ids.length);
+        const rows = gridRows(state.ids.length);
+        const cellWidth = (rect.width - colGap * (cols - 1)) / cols;
+        const cellHeight = (rect.height - rowGap * (rows - 1)) / rows;
+        const headerHeights = Array.from(document.querySelectorAll(".feed-head")).map((head) =>
+          head.getBoundingClientRect().height,
+        );
+        const headerHeight = Math.max(44, ...headerHeights);
+        const maxVideoHeight = Math.max(120, cellHeight - headerHeight);
+        const videoHeight = Math.min(cellWidth * 9 / 16, maxVideoHeight);
+        const feedWidth = Math.min(cellWidth, videoHeight * 16 / 9);
+        const feedHeight = headerHeight + videoHeight;
+
+        wall.style.setProperty("--feed-width", `${Math.floor(feedWidth)}px`);
+        wall.style.setProperty("--feed-height", `${Math.floor(feedHeight)}px`);
+        wall.style.setProperty("--feed-video-height", `${Math.floor(videoHeight)}px`);
       }
 
       function fitFramesToCells() {
@@ -988,19 +1037,19 @@
         true,
       );
 
-      const observer = new ResizeObserver(() => fitFramesToCells());
+      const observer = new ResizeObserver(() => resizeLiveWindows());
       function observeFrames() {
         observer.disconnect();
         document.querySelectorAll(".frame-wrap").forEach((wrap) => observer.observe(wrap));
       }
-      window.addEventListener("resize", fitFramesToCells);
+      window.addEventListener("resize", resizeLiveWindows);
       window.addEventListener("resize", () => window.cleanOfficialBanner?.());
 
       setLayout(["focus", "equal", "stack"].includes(state.layout) ? state.layout : "equal");
       state.focus = Math.min(Math.max(state.focus, 0), state.ids.length - 1);
       renderFeeds();
       if (state.layout === "focus") setFocus(state.focus);
-      fitFramesToCells();
+      resizeLiveWindows();
       window.cleanOfficialBanner?.();
       trackEvent("live_wall_ready");
       if (shouldAutoDetect) autoDetectTodayMatches();
