@@ -135,6 +135,10 @@
         background: transparent;
       }
 
+      .field.source-field input {
+        width: min(34rem, 42vw);
+      }
+
       .field select {
         border: 0;
         outline: 0;
@@ -352,7 +356,7 @@
       iframe {
         display: block;
         position: absolute;
-        top: 0;
+        top: var(--embed-top, 0);
         left: 50%;
         width: var(--embed-width, 100%);
         height: var(--embed-height, 100%);
@@ -499,6 +503,10 @@
             <span>轮次</span>
             <input id="turnInput" inputmode="numeric" aria-label="轮次 ID" />
           </label>
+          <label class="field source-field">
+            <span>视频源</span>
+            <input id="sourceInput" aria-label="视频源模板，可使用 {turnId} 和 {scheduleId}" />
+          </label>
           <button class="btn primary" id="applyBtn" type="button">应用</button>
           <button class="btn" data-layout="focus" type="button">主画面</button>
           <button class="btn active" data-layout="equal" type="button">自动网格</button>
@@ -512,7 +520,7 @@
     <script src="https://m.jstv.com/common/config.js"></script>
     <script src="https://m.jstv.com/h5/2026superjsleague/store/cm.js"></script>
     <script>
-      const baseUrl = "https://m.jstv.com/h5/2026superjsleague/wap/index.html";
+      const defaultSourceTemplate = "https://m.jstv.com/h5/2026superjsleague/wap/index.html?turnId={turnId}&scheduleId={scheduleId}";
       const baseApi = "https://js-football-2026-lizhi.jstv.com/api/footballLeague/";
       const params = new URLSearchParams(window.location.search);
       const shouldAutoDetect =
@@ -522,6 +530,8 @@
         ids: parseIds(),
         layout: params.get("layout") || "equal",
         focus: Number(params.get("focus") || 0),
+        sourceTemplate: params.get("source") || defaultSourceTemplate,
+        cropTop: Number(params.get("cropTop") || 68),
       };
 
       function parseIds() {
@@ -566,10 +576,9 @@
       }
 
       function sourceFor(scheduleId) {
-        const url = new URL(baseUrl);
-        url.searchParams.set("turnId", state.turnId);
-        url.searchParams.set("scheduleId", scheduleId);
-        return url.toString();
+        return state.sourceTemplate
+          .replaceAll("{turnId}", encodeURIComponent(state.turnId))
+          .replaceAll("{scheduleId}", encodeURIComponent(scheduleId));
       }
 
       function trackEvent(name, params = {}) {
@@ -599,6 +608,7 @@
         document.getElementById("idsInput").value = state.ids[0] || "41";
         document.getElementById("countInput").value = String(normalizeCount(state.ids.length));
         document.getElementById("turnInput").value = state.turnId;
+        document.getElementById("sourceInput").value = state.sourceTemplate;
         document.getElementById("status").textContent =
           `当前轮次 ${state.turnId}，${state.ids.length} 场完整显示：${state.ids.join(" / ")}`;
 
@@ -681,6 +691,7 @@
           : normalizeIds(Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim()));
         state.focus = Math.min(state.focus, state.ids.length - 1);
         state.turnId = document.getElementById("turnInput").value.trim() || "200";
+        state.sourceTemplate = document.getElementById("sourceInput").value.trim() || defaultSourceTemplate;
         renderFeeds();
         setLayout("equal");
         trackEvent("apply_matches");
@@ -689,6 +700,7 @@
       function applySlotInputs() {
         state.ids = normalizeIds(Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim()));
         state.focus = Math.min(state.focus, state.ids.length - 1);
+        state.sourceTemplate = document.getElementById("sourceInput").value.trim() || defaultSourceTemplate;
         renderFeeds();
         setLayout(state.layout);
         trackEvent("apply_matches", { input_mode: "manual_slots" });
@@ -725,9 +737,11 @@
           const isFill = wrap.closest(".feed")?.classList.contains("fill");
           const videoWidthForHeight = rect.height * 16 / 9;
           const embedWidth = isFill ? Math.max(rect.width, videoWidthForHeight) : Math.min(rect.width, videoWidthForHeight);
-          const embedHeight = Math.max(rect.height, embedWidth * 1.8);
+          const cropTop = state.sourceTemplate === defaultSourceTemplate ? state.cropTop : 0;
+          const embedHeight = Math.max(rect.height + cropTop, embedWidth * 1.8);
           wrap.style.setProperty("--embed-width", `${Math.ceil(embedWidth)}px`);
           wrap.style.setProperty("--embed-height", `${Math.ceil(embedHeight)}px`);
+          wrap.style.setProperty("--embed-top", `${-cropTop}px`);
         });
       }
 
@@ -739,6 +753,11 @@
         next.searchParams.set("count", String(state.ids.length));
         next.searchParams.set("layout", state.layout);
         next.searchParams.set("focus", String(state.focus));
+        if (state.sourceTemplate === defaultSourceTemplate) {
+          next.searchParams.delete("source");
+        } else {
+          next.searchParams.set("source", state.sourceTemplate);
+        }
         window.history.replaceState(null, "", next);
       }
 
@@ -855,6 +874,9 @@
         if (event.key === "Enter") applyFromInputs();
       });
       document.getElementById("turnInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") applyFromInputs();
+      });
+      document.getElementById("sourceInput").addEventListener("keydown", (event) => {
         if (event.key === "Enter") applyFromInputs();
       });
       document.getElementById("countInput").addEventListener("change", applyFromInputs);
