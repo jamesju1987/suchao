@@ -4,9 +4,9 @@
 
 [立即打开](https://jamesju1987.github.io/suchao/)
 
-![苏超多路直播墙界面预览](assets/screenshot.svg)
+![苏超多路直播墙营销海报](assets/marketing-poster.png)
 
-扫码打开：
+单独二维码：
 
 ![苏超多路直播墙二维码](assets/qr-suchao.png)
 
