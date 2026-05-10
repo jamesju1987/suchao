@@ -212,6 +212,22 @@
         grid-auto-rows: auto;
       }
 
+      .wall.layout-equal.count-1,
+      .wall.layout-equal.count-4 {
+        align-content: stretch;
+        align-items: stretch;
+      }
+
+      .wall.layout-equal.count-1 {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+      }
+
+      .wall.layout-equal.count-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+
       .wall.layout-stack {
         grid-template-columns: 1fr;
         grid-template-rows: repeat(var(--count, 3), minmax(0, 1fr));
@@ -230,6 +246,14 @@
         box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.34);
         aspect-ratio: 16 / 9;
         max-height: calc(100vh - 6rem);
+      }
+
+      .wall.layout-equal.count-1 .feed,
+      .wall.layout-equal.count-4 .feed {
+        width: 100%;
+        height: 100%;
+        aspect-ratio: auto;
+        max-height: none;
       }
 
       .feed.active {
@@ -622,7 +646,7 @@
         const changed = state.layout !== layout;
         state.layout = layout;
         const wall = document.getElementById("wall");
-        wall.className = `wall layout-${layout}`;
+        wall.className = `wall layout-${layout} count-${state.ids.length}`;
         wall.style.setProperty("--count", String(state.ids.length));
         wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
         document.querySelectorAll("[data-layout]").forEach((button) => {
@@ -658,7 +682,7 @@
         state.focus = Math.min(state.focus, state.ids.length - 1);
         state.turnId = document.getElementById("turnInput").value.trim() || "200";
         renderFeeds();
-        setLayout(state.layout);
+        setLayout("equal");
         trackEvent("apply_matches");
       }
 
@@ -765,7 +789,7 @@
           if (today.length) {
             return {
               turnId: turn.turnId,
-              ids: today.map((item) => String(item.scheduleId)).filter(Boolean).slice(0, 6),
+              ids: normalizeIds(today.map((item) => String(item.scheduleId)).filter(Boolean)),
             };
           }
         }
