@@ -51,6 +51,20 @@
         overflow: hidden;
       }
 
+      body > :not(.app)[class*="download" i],
+      body > :not(.app)[class*="appdown" i],
+      body > :not(.app)[class*="app-down" i],
+      body > :not(.app)[class*="openapp" i],
+      body > :not(.app)[class*="open-app" i],
+      body > :not(.app)[id*="download" i],
+      body > :not(.app)[id*="appdown" i],
+      body > :not(.app)[id*="openapp" i] {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+      }
+
       button,
       input,
       select {
@@ -217,13 +231,9 @@
 
       .wall.layout-equal {
         grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
-        grid-auto-rows: auto;
-      }
-
-      .wall.layout-equal.count-1,
-      .wall.layout-equal.count-4 {
         align-content: stretch;
         align-items: stretch;
+        grid-auto-rows: minmax(0, 1fr);
       }
 
       .wall.layout-equal.count-1 {
@@ -231,8 +241,23 @@
         grid-template-rows: 1fr;
       }
 
+      .wall.layout-equal.count-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: 1fr;
+      }
+
+      .wall.layout-equal.count-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: 1fr;
+      }
+
       .wall.layout-equal.count-4 {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+      }
+
+      .wall.layout-equal.count-6 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         grid-template-rows: repeat(2, minmax(0, 1fr));
       }
 
@@ -256,8 +281,7 @@
         max-height: calc(100vh - 6rem);
       }
 
-      .wall.layout-equal.count-1 .feed,
-      .wall.layout-equal.count-4 .feed {
+      .wall.layout-equal .feed {
         width: 100%;
         height: 100%;
         aspect-ratio: auto;
@@ -521,6 +545,56 @@
       <section class="wall layout-equal" id="wall" aria-label="多场比赛直播画面"></section>
     </main>
 
+    <script>
+      (function installOfficialBannerCleaner() {
+        const bannerText = /荔枝新闻|下载|打开\s*APP|打开\s*App|打开\s*app/;
+
+        function setImportantStyle(element, property, value) {
+          if (
+            element.style.getPropertyValue(property) === value &&
+            element.style.getPropertyPriority(property) === "important"
+          ) {
+            return;
+          }
+          element.style.setProperty(property, value, "important");
+        }
+
+        function resetPageOffset() {
+          setImportantStyle(document.documentElement, "padding-top", "0");
+          setImportantStyle(document.documentElement, "margin-top", "0");
+          setImportantStyle(document.body, "padding-top", "0");
+          setImportantStyle(document.body, "margin-top", "0");
+        }
+
+        function hideElement(element) {
+          setImportantStyle(element, "display", "none");
+          setImportantStyle(element, "height", "0");
+          setImportantStyle(element, "min-height", "0");
+          setImportantStyle(element, "overflow", "hidden");
+        }
+
+        function cleanOfficialBanner() {
+          resetPageOffset();
+          Array.from(document.body.children).forEach((element) => {
+            if (element.classList.contains("app")) return;
+            const rect = element.getBoundingClientRect();
+            const text = element.textContent || "";
+            const isTopBanner = rect.top <= 90 && rect.height <= 140 && rect.width >= window.innerWidth * 0.72;
+            if (isTopBanner && bannerText.test(text)) hideElement(element);
+          });
+        }
+
+        cleanOfficialBanner();
+        window.cleanOfficialBanner = cleanOfficialBanner;
+        new MutationObserver(cleanOfficialBanner).observe(document.body, {
+          childList: true,
+          attributes: true,
+          attributeFilter: ["class", "style"],
+        });
+        window.addEventListener("load", cleanOfficialBanner);
+        window.addEventListener("resize", cleanOfficialBanner);
+      })();
+    </script>
     <script src="https://m.jstv.com/common/config.js"></script>
     <script src="https://m.jstv.com/h5/2026superjsleague/store/cm.js"></script>
     <script>
@@ -643,7 +717,7 @@
                 <button class="icon-btn" data-action="reload" data-index="${index}" type="button" title="刷新">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
                 </button>
-                <button class="icon-btn" data-action="fit" data-index="${index}" type="button" title="区域填满 / 完整显示">
+                <button class="icon-btn" data-action="fit" data-index="${index}" type="button" title="区域内全屏 / 完整显示">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /><path d="M9 21H3v-6" /><path d="M21 3l-7 7" /><path d="M3 21l7-7" /></svg>
                 </button>
               </div>
@@ -725,7 +799,7 @@
         if (!feed) return;
         const isFill = feed.classList.toggle("fill");
         const note = feed.querySelector(".overlay-note");
-        if (note) note.textContent = isFill ? "区域内填满显示" : "完整显示直播画面";
+        if (note) note.textContent = isFill ? "区域内全屏显示" : "完整显示直播画面";
         fitFramesToCells();
         trackEvent("toggle_fit", {
           schedule_id: state.ids[index],
@@ -920,12 +994,14 @@
         document.querySelectorAll(".frame-wrap").forEach((wrap) => observer.observe(wrap));
       }
       window.addEventListener("resize", fitFramesToCells);
+      window.addEventListener("resize", () => window.cleanOfficialBanner?.());
 
       setLayout(["focus", "equal", "stack"].includes(state.layout) ? state.layout : "equal");
       state.focus = Math.min(Math.max(state.focus, 0), state.ids.length - 1);
       renderFeeds();
       if (state.layout === "focus") setFocus(state.focus);
       fitFramesToCells();
+      window.cleanOfficialBanner?.();
       trackEvent("live_wall_ready");
       if (shouldAutoDetect) autoDetectTodayMatches();
     </script>
