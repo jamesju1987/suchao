@@ -502,9 +502,33 @@
         .wall.layout-focus,
         .wall.layout-equal,
         .wall.layout-stack {
-          min-height: calc(100vh - 7.4rem);
+          min-height: 0;
+          align-content: start;
+          align-items: start;
           grid-template-columns: 1fr;
-          grid-template-rows: repeat(var(--count, 3), minmax(18rem, 70vh));
+          grid-template-rows: none;
+          grid-auto-rows: auto;
+        }
+
+        .wall.layout-equal.count-1,
+        .wall.layout-equal.count-2,
+        .wall.layout-equal.count-3,
+        .wall.layout-equal.count-4,
+        .wall.layout-equal.count-6 {
+          grid-template-columns: 1fr;
+          grid-template-rows: none;
+        }
+
+        .wall.layout-equal .feed {
+          width: 100%;
+          height: auto;
+          max-height: none;
+        }
+
+        .wall.layout-equal .frame-wrap {
+          width: 100%;
+          height: auto;
+          aspect-ratio: 16 / 9;
         }
 
         .layout-focus .feed:first-child {
@@ -518,10 +542,25 @@
           padding: 0.5rem;
         }
 
+        .brand {
+          display: grid;
+          gap: 0.2rem;
+          justify-content: stretch;
+        }
+
+        .brand h1 {
+          font-size: 1rem;
+        }
+
+        .status {
+          font-size: 0.72rem;
+        }
+
         .controls {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           width: 100%;
+          gap: 0.45rem;
         }
 
         .field,
@@ -537,16 +576,29 @@
           width: 100%;
         }
 
+        .field.source-field input {
+          width: 100%;
+        }
+
         .feed-head {
           grid-template-columns: 1fr;
+          gap: 0.45rem;
+          padding: 0.5rem;
         }
 
         .feed-actions {
           justify-content: space-between;
+          gap: 0.35rem;
         }
 
         .feed-actions input {
-          width: 5.4rem;
+          width: min(5.4rem, 32vw);
+          flex: 1 1 auto;
+        }
+
+        .icon-btn {
+          width: 2.25rem;
+          flex: 0 0 2.25rem;
         }
       }
     </style>
@@ -888,7 +940,7 @@
 
       function sizeFeedCards() {
         const wall = document.getElementById("wall");
-        if (!wall || state.layout !== "equal") {
+        if (!wall || state.layout !== "equal" || window.innerWidth <= 980) {
           wall?.style.removeProperty("--feed-width");
           wall?.style.removeProperty("--feed-height");
           wall?.style.removeProperty("--feed-video-height");
