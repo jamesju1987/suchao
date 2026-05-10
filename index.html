@@ -139,6 +139,10 @@
         width: min(34rem, 42vw);
       }
 
+      .advanced-field {
+        display: none;
+      }
+
       .field select {
         border: 0;
         outline: 0;
@@ -485,7 +489,7 @@
           <div class="status" id="status">官方赛事页嵌入显示</div>
         </div>
         <div class="controls">
-          <label class="field">
+          <label class="field advanced-field">
             <span>起始场次</span>
             <input id="idsInput" inputmode="numeric" aria-label="起始场次 ID" />
           </label>
@@ -499,7 +503,7 @@
               <option value="6">6场</option>
             </select>
           </label>
-          <label class="field">
+          <label class="field advanced-field">
             <span>轮次</span>
             <input id="turnInput" inputmode="numeric" aria-label="轮次 ID" />
           </label>
@@ -531,7 +535,7 @@
         layout: params.get("layout") || "equal",
         focus: Number(params.get("focus") || 0),
         sourceTemplate: params.get("source") || defaultSourceTemplate,
-        cropTop: Number(params.get("cropTop") || 68),
+        cropTop: Number(params.get("cropTop") || 132),
       };
 
       function parseIds() {
