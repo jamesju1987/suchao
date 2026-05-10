@@ -4,6 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>苏超多路直播墙</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NZ6N8W92YL"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-NZ6N8W92YL");
+    </script>
     <style>
       :root {
         color-scheme: dark;
@@ -510,6 +519,17 @@
         return url.toString();
       }
 
+      function trackEvent(name, params = {}) {
+        if (typeof window.gtag !== "function") return;
+        window.gtag("event", name, {
+          turn_id: state.turnId,
+          match_ids: state.ids.join(","),
+          match_count: state.ids.length,
+          layout: state.layout,
+          ...params,
+        });
+      }
+
       function gridColumns(count) {
         if (count === 1) return 1;
         if (count === 2) return 2;
@@ -561,7 +581,7 @@
               </div>
             </div>
             <div class="frame-wrap">
-              <iframe id="frame-${index}" src="${sourceFor(id)}" allow="autoplay; encrypted-media; picture-in-picture" title="第 ${index + 1} 路直播"></iframe>
+              <iframe id="frame-${index}" data-index="${index}" data-schedule-id="${id}" src="${sourceFor(id)}" allow="autoplay; encrypted-media; picture-in-picture" title="第 ${index + 1} 路直播"></iframe>
               <div class="overlay-note">完整显示直播画面</div>
             </div>
           </article>
@@ -569,6 +589,7 @@
       }
 
       function setLayout(layout) {
+        const changed = state.layout !== layout;
         state.layout = layout;
         const wall = document.getElementById("wall");
         wall.className = `wall layout-${layout}`;
@@ -579,6 +600,9 @@
         });
         requestAnimationFrame(fitFramesToCells);
         updateUrl();
+        if (changed) {
+          trackEvent("change_layout", { selected_layout: layout });
+        }
       }
 
       function setFocus(index) {
@@ -589,6 +613,10 @@
         wall.insertBefore(selected, wall.firstElementChild);
         document.querySelectorAll(".feed").forEach((feed) => feed.classList.toggle("active", feed === selected));
         setLayout("focus");
+        trackEvent("focus_match", {
+          schedule_id: state.ids[index],
+          match_index: index,
+        });
       }
 
       function applyFromInputs() {
@@ -600,12 +628,17 @@
         state.turnId = document.getElementById("turnInput").value.trim() || "200";
         renderFeeds();
         setLayout(state.layout);
+        trackEvent("apply_matches");
       }
 
       function reloadFrame(index) {
         const frame = document.getElementById(`frame-${index}`);
         if (!frame) return;
         frame.src = sourceFor(state.ids[index]);
+        trackEvent("reload_match", {
+          schedule_id: state.ids[index],
+          match_index: index,
+        });
       }
 
       function toggleFit(index) {
@@ -615,6 +648,11 @@
         const note = feed.querySelector(".overlay-note");
         if (note) note.textContent = isFill ? "区域内填满显示" : "完整显示直播画面";
         fitFramesToCells();
+        trackEvent("toggle_fit", {
+          schedule_id: state.ids[index],
+          match_index: index,
+          fit_mode: isFill ? "fill" : "contain",
+        });
       }
 
       function fitFramesToCells() {
@@ -664,6 +702,18 @@
         if (event.key === "Enter" && event.target.matches("[data-slot]")) applyFromInputs();
       });
 
+      document.getElementById("wall").addEventListener(
+        "load",
+        (event) => {
+          if (!event.target.matches("iframe")) return;
+          trackEvent("live_frame_loaded", {
+            schedule_id: event.target.dataset.scheduleId,
+            match_index: Number(event.target.dataset.index),
+          });
+        },
+        true,
+      );
+
       const observer = new ResizeObserver(() => fitFramesToCells());
       function observeFrames() {
         observer.disconnect();
@@ -676,6 +726,7 @@
       renderFeeds();
       if (state.layout === "focus") setFocus(state.focus);
       fitFramesToCells();
+      trackEvent("live_wall_ready");
     </script>
   </body>
 </html>
