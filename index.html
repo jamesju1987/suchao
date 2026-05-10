@@ -493,7 +493,14 @@
 
       function normalizeIds(ids) {
         const normalized = ids.map((id) => id.trim()).filter(Boolean).slice(0, 6);
-        return normalized.length ? normalized : ["41", "42", "43"];
+        if (!normalized.length) return ["41", "42", "43"];
+
+        if (normalized.length === 5) {
+          const last = Number(normalized[normalized.length - 1]);
+          normalized.push(Number.isFinite(last) ? String(last + 1) : normalized[normalized.length - 1]);
+        }
+
+        return normalized;
       }
 
       function sourceFor(scheduleId) {
@@ -504,7 +511,8 @@
       }
 
       function gridColumns(count) {
-        if (count <= 2) return count;
+        if (count === 1) return 1;
+        if (count === 2) return 2;
         if (count === 4) return 2;
         return 3;
       }
