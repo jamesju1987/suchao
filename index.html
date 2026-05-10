@@ -485,9 +485,14 @@
       <section class="wall layout-equal" id="wall" aria-label="多场比赛直播画面"></section>
     </main>
 
+    <script src="https://m.jstv.com/common/config.js"></script>
+    <script src="https://m.jstv.com/h5/2026superjsleague/store/cm.js"></script>
     <script>
       const baseUrl = "https://m.jstv.com/h5/2026superjsleague/wap/index.html";
+      const baseApi = "https://js-football-2026-lizhi.jstv.com/api/footballLeague/";
       const params = new URLSearchParams(window.location.search);
+      const shouldAutoDetect =
+        !params.has("ids") && !params.has("scheduleId") && !params.has("startId") && !params.has("count");
       const state = {
         turnId: params.get("turnId") || "200",
         ids: parseIds(),
@@ -518,6 +523,10 @@
 
       function generateIds(start, count) {
         return Array.from({ length: count }, (_, index) => String(start + index));
+      }
+
+      function statusText(text) {
+        document.getElementById("status").textContent = text;
       }
 
       function normalizeIds(ids) {
@@ -709,6 +718,114 @@
         window.history.replaceState(null, "", next);
       }
 
+      async function autoDetectTodayMatches() {
+        statusText("正在检查今天赛程...");
+        try {
+          const result = await fetchTodayMatches();
+          if (!result.ids.length) {
+            statusText(`未检测到今日比赛，默认显示 ${state.ids.length} 场：${state.ids.join(" / ")}`);
+            trackEvent("auto_today_matches_empty");
+            return;
+          }
+
+          state.turnId = String(result.turnId);
+          state.ids = result.ids;
+          state.focus = 0;
+          renderFeeds();
+          setLayout("equal");
+          statusText(`已自动匹配今日 ${state.ids.length} 场：${state.ids.join(" / ")}`);
+          trackEvent("auto_today_matches", {
+            detected_count: state.ids.length,
+            detected_turn_id: state.turnId,
+          });
+        } catch (error) {
+          console.warn("自动检查今日赛程失败", error);
+          statusText(`今日赛程检查失败，默认显示 ${state.ids.length} 场：${state.ids.join(" / ")}`);
+          trackEvent("auto_today_matches_failed", {
+            error_message: String(error).slice(0, 120),
+          });
+        }
+      }
+
+      async function fetchTodayMatches() {
+        if (!window.cm || typeof window.cm.get !== "function") {
+          throw new Error("official schedule helper unavailable");
+        }
+
+        const turnRes = await window.cm.get(`${baseApi}getCompetitionTurnList`);
+        if (!turnRes || turnRes.code !== 200 || !Array.isArray(turnRes.data)) {
+          throw new Error("turn list unavailable");
+        }
+
+        const turns = orderTurns(turnRes.data);
+        for (const turn of turns) {
+          const scheduleRes = await window.cm.get(`${baseApi}getCompetitionScheduleList?turnId=${turn.turnId}`);
+          if (!scheduleRes || scheduleRes.code !== 200 || !Array.isArray(scheduleRes.data)) continue;
+          const today = scheduleRes.data.filter(isTodaySchedule);
+          if (today.length) {
+            return {
+              turnId: turn.turnId,
+              ids: today.map((item) => String(item.scheduleId)).filter(Boolean).slice(0, 6),
+            };
+          }
+        }
+
+        return { turnId: state.turnId, ids: [] };
+      }
+
+      function orderTurns(turns) {
+        return [...turns].sort((a, b) => {
+          if (String(a.turnId) === String(state.turnId)) return -1;
+          if (String(b.turnId) === String(state.turnId)) return 1;
+          if (Number(a.isDefault) === 1) return -1;
+          if (Number(b.isDefault) === 1) return 1;
+          return 0;
+        });
+      }
+
+      function isTodaySchedule(schedule) {
+        const today = new Date();
+        const todayIso = formatDate(today, "-");
+        const todaySlash = formatDate(today, "/");
+        const todayCn = `${today.getMonth() + 1}月${today.getDate()}日`;
+
+        for (const [key, value] of Object.entries(schedule)) {
+          if (!/(time|date|begin|start)/i.test(key)) continue;
+          if (value == null) continue;
+
+          const raw = String(value);
+          if (raw.includes(todayIso) || raw.includes(todaySlash) || raw.includes(todayCn)) return true;
+
+          const timestamp = parseScheduleTime(value);
+          if (!timestamp) continue;
+          const date = new Date(timestamp);
+          if (formatDate(date, "-") === todayIso) return true;
+        }
+
+        return false;
+      }
+
+      function formatDate(date, separator) {
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${date.getFullYear()}${separator}${month}${separator}${day}`;
+      }
+
+      function parseScheduleTime(value) {
+        if (typeof value === "number") {
+          if (value > 1e12) return value;
+          if (value > 1e9) return value * 1000;
+          return 0;
+        }
+
+        const text = String(value).trim();
+        if (/^\d{13}$/.test(text)) return Number(text);
+        if (/^\d{10}$/.test(text)) return Number(text) * 1000;
+
+        const parsed = Date.parse(text.replace(/-/g, "/"));
+        return Number.isNaN(parsed) ? 0 : parsed;
+      }
+
       document.getElementById("applyBtn").addEventListener("click", applyFromInputs);
       document.getElementById("idsInput").addEventListener("keydown", (event) => {
         if (event.key === "Enter") applyFromInputs();
@@ -760,6 +877,7 @@
       if (state.layout === "focus") setFocus(state.focus);
       fitFramesToCells();
       trackEvent("live_wall_ready");
+      if (shouldAutoDetect) autoDetectTodayMatches();
     </script>
   </body>
 </html>
