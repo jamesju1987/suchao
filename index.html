@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>苏超多路直播墙</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07110c;
+        --panel: #101814;
+        --panel-strong: #17231d;
+        --line: rgba(255, 255, 255, 0.14);
+        --line-strong: rgba(255, 255, 255, 0.26);
+        --text: #f6f8f3;
+        --muted: #9aa89d;
+        --accent: #f2c14e;
+        --accent-2: #d73f31;
+        --field: #0b100d;
+        --good: #42d692;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(circle at 12% 0%, rgba(242, 193, 78, 0.15), transparent 28rem),
+          linear-gradient(135deg, #06100b 0%, #0a1812 44%, #111413 100%);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          "Microsoft YaHei", sans-serif;
+        overflow: hidden;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .app {
+        height: 100%;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .toolbar {
+        display: grid;
+        grid-template-columns: minmax(13rem, 1fr) auto;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.75rem;
+        background: rgba(7, 17, 12, 0.92);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: blur(16px);
+      }
+
+      .brand {
+        min-width: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+      }
+
+      .brand h1 {
+        margin: 0;
+        font-size: clamp(1rem, 2vw, 1.35rem);
+        letter-spacing: 0;
+        white-space: nowrap;
+      }
+
+      .status {
+        color: var(--muted);
+        font-size: 0.82rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .field {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        height: 2.3rem;
+        padding: 0 0.65rem;
+        border: 1px solid var(--line);
+        border-radius: 0.45rem;
+        background: var(--field);
+      }
+
+      .field span {
+        color: var(--muted);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+
+      .field input {
+        width: 10.8rem;
+        border: 0;
+        outline: 0;
+        color: var(--text);
+        background: transparent;
+      }
+
+      .field select {
+        border: 0;
+        outline: 0;
+        color: var(--text);
+        background: transparent;
+      }
+
+      .btn,
+      .icon-btn {
+        height: 2.3rem;
+        border-radius: 0.45rem;
+        background: var(--panel-strong);
+        border: 1px solid var(--line);
+        transition:
+          border-color 150ms ease,
+          background 150ms ease,
+          transform 150ms ease;
+      }
+
+      .btn {
+        padding: 0 0.85rem;
+        white-space: nowrap;
+      }
+
+      .icon-btn {
+        width: 2.45rem;
+        display: inline-grid;
+        place-items: center;
+      }
+
+      .btn:hover,
+      .icon-btn:hover {
+        border-color: var(--line-strong);
+        background: #223028;
+      }
+
+      .btn:active,
+      .icon-btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn.primary {
+        color: #1d1300;
+        background: var(--accent);
+        border-color: rgba(242, 193, 78, 0.88);
+        font-weight: 700;
+      }
+
+      .btn.active {
+        color: #fff;
+        background: var(--accent-2);
+        border-color: rgba(215, 63, 49, 0.9);
+      }
+
+      .wall {
+        min-height: 0;
+        padding: 0.75rem;
+        display: grid;
+        gap: 0.75rem;
+        align-content: center;
+        align-items: center;
+      }
+
+      .wall.layout-focus {
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        grid-auto-rows: minmax(0, 1fr);
+      }
+
+      .layout-focus .feed.active {
+        grid-row: span 2;
+      }
+
+      .wall.layout-equal {
+        grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+        grid-auto-rows: auto;
+      }
+
+      .wall.layout-stack {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(var(--count, 3), minmax(0, 1fr));
+      }
+
+      .feed {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 0.5rem;
+        background: #050806;
+        box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.34);
+        aspect-ratio: 16 / 9;
+        max-height: calc(100vh - 6rem);
+      }
+
+      .feed.active {
+        border-color: rgba(242, 193, 78, 0.86);
+        box-shadow:
+          0 0 0 1px rgba(242, 193, 78, 0.2),
+          0 1.2rem 3rem rgba(0, 0, 0, 0.34);
+      }
+
+      .feed-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.6rem;
+        align-items: center;
+        padding: 0.55rem 0.65rem;
+        background: linear-gradient(90deg, rgba(23, 35, 29, 0.96), rgba(12, 18, 15, 0.96));
+        border-bottom: 1px solid var(--line);
+      }
+
+      .title-group {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        flex: 0 0 auto;
+        border-radius: 0.35rem;
+        color: #1d1300;
+        background: var(--accent);
+        font-weight: 800;
+      }
+
+      .feed-title {
+        min-width: 0;
+      }
+
+      .feed-title strong,
+      .feed-title span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .feed-title strong {
+        font-size: 0.95rem;
+      }
+
+      .feed-title span {
+        margin-top: 0.1rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .feed-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .feed-actions input {
+        width: 4.6rem;
+        height: 2rem;
+        padding: 0 0.5rem;
+        color: var(--text);
+        border: 1px solid var(--line);
+        border-radius: 0.35rem;
+        background: #070b08;
+        outline: 0;
+      }
+
+      .frame-wrap {
+        position: relative;
+        min-height: 0;
+        background:
+          linear-gradient(45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+          linear-gradient(-45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+          #020302;
+        background-size: 1.4rem 1.4rem;
+        overflow: hidden;
+      }
+
+      iframe {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: var(--embed-width, 100%);
+        height: var(--embed-height, 100%);
+        border: 0;
+        background: #000;
+        transform: translateX(-50%);
+      }
+
+      .overlay-note {
+        position: absolute;
+        left: 0.55rem;
+        bottom: 0.55rem;
+        max-width: calc(100% - 1.1rem);
+        padding: 0.35rem 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 0.35rem;
+        color: rgba(255, 255, 255, 0.82);
+        background: rgba(0, 0, 0, 0.54);
+        font-size: 0.72rem;
+        line-height: 1.35;
+        pointer-events: none;
+      }
+
+      .live-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--good);
+        box-shadow: 0 0 0 0.24rem rgba(66, 214, 146, 0.14);
+      }
+
+      svg {
+        width: 1.1rem;
+        height: 1.1rem;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+
+      @media (max-width: 980px) {
+        body {
+          overflow: auto;
+        }
+
+        .app {
+          min-height: 100%;
+          height: auto;
+        }
+
+        .toolbar {
+          grid-template-columns: 1fr;
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+
+        .brand {
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .controls {
+          justify-content: flex-start;
+        }
+
+        .wall,
+        .wall.layout-focus,
+        .wall.layout-equal,
+        .wall.layout-stack {
+          min-height: calc(100vh - 7.4rem);
+          grid-template-columns: 1fr;
+          grid-template-rows: repeat(var(--count, 3), minmax(18rem, 70vh));
+        }
+
+        .layout-focus .feed:first-child {
+          grid-row: auto;
+        }
+      }
+
+      @media (max-width: 560px) {
+        .toolbar,
+        .wall {
+          padding: 0.5rem;
+        }
+
+        .controls {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          width: 100%;
+        }
+
+        .field,
+        .btn {
+          width: 100%;
+        }
+
+        .field {
+          grid-column: span 2;
+        }
+
+        .field input {
+          width: 100%;
+        }
+
+        .feed-head {
+          grid-template-columns: 1fr;
+        }
+
+        .feed-actions {
+          justify-content: space-between;
+        }
+
+        .feed-actions input {
+          width: 5.4rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="toolbar">
+        <div class="brand">
+          <h1>苏超多路直播墙</h1>
+          <div class="status" id="status">官方赛事页嵌入显示</div>
+        </div>
+        <div class="controls">
+          <label class="field">
+            <span>场次</span>
+            <input id="idsInput" inputmode="numeric" aria-label="场次 ID，用逗号分隔" />
+          </label>
+          <label class="field">
+            <span>轮次</span>
+            <input id="turnInput" inputmode="numeric" aria-label="轮次 ID" />
+          </label>
+          <button class="btn primary" id="applyBtn" type="button">应用</button>
+          <button class="btn" data-layout="focus" type="button">主画面</button>
+          <button class="btn active" data-layout="equal" type="button">自动网格</button>
+          <button class="btn" data-layout="stack" type="button">纵向</button>
+        </div>
+      </header>
+
+      <section class="wall layout-equal" id="wall" aria-label="多场比赛直播画面"></section>
+    </main>
+
+    <script>
+      const baseUrl = "https://m.jstv.com/h5/2026superjsleague/wap/index.html";
+      const params = new URLSearchParams(window.location.search);
+      const state = {
+        turnId: params.get("turnId") || "200",
+        ids: parseIds(),
+        layout: params.get("layout") || "equal",
+        focus: Number(params.get("focus") || 0),
+      };
+
+      function parseIds() {
+        const idsParam = params.get("ids");
+        if (idsParam) {
+          const ids = idsParam.split(",").map((id) => id.trim()).filter(Boolean);
+          return normalizeIds(ids);
+        }
+
+        const first = params.get("scheduleId") || "41";
+        const firstNumber = Number(first);
+        if (Number.isFinite(firstNumber)) {
+          return [firstNumber, firstNumber + 1, firstNumber + 2].map(String);
+        }
+        return ["41", "42", "43"];
+      }
+
+      function normalizeIds(ids) {
+        const normalized = ids.map((id) => id.trim()).filter(Boolean).slice(0, 6);
+        return normalized.length ? normalized : ["41", "42", "43"];
+      }
+
+      function sourceFor(scheduleId) {
+        const url = new URL(baseUrl);
+        url.searchParams.set("turnId", state.turnId);
+        url.searchParams.set("scheduleId", scheduleId);
+        return url.toString();
+      }
+
+      function gridColumns(count) {
+        if (count <= 2) return count;
+        if (count === 4) return 2;
+        return 3;
+      }
+
+      function renderFeeds() {
+        const wall = document.getElementById("wall");
+        wall.style.setProperty("--count", String(state.ids.length));
+        wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
+        wall.innerHTML = state.ids.map((id, index) => feedTemplate(id, index)).join("");
+
+        document.getElementById("idsInput").value = state.ids.join(",");
+        document.getElementById("turnInput").value = state.turnId;
+        document.getElementById("status").textContent =
+          `当前轮次 ${state.turnId}，${state.ids.length} 场完整显示：${state.ids.join(" / ")}`;
+
+        observeFrames();
+        requestAnimationFrame(fitFramesToCells);
+        updateUrl();
+      }
+
+      function feedTemplate(id, index) {
+        const title = index === state.focus ? "主直播" : `第 ${index + 1} 路`;
+        const active = index === state.focus ? " active" : "";
+        return `
+          <article class="feed${active}" data-index="${index}">
+            <div class="feed-head">
+              <div class="title-group">
+                <span class="badge">${index + 1}</span>
+                <span class="live-dot" aria-hidden="true"></span>
+                <div class="feed-title">
+                  <strong>${title}</strong>
+                  <span>turnId=${state.turnId} / scheduleId=${id}</span>
+                </div>
+              </div>
+              <div class="feed-actions">
+                <input data-slot="${index}" value="${id}" inputmode="numeric" aria-label="第 ${index + 1} 路场次 ID" />
+                <button class="icon-btn" data-action="focus" data-index="${index}" type="button" title="设为主画面">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+                </button>
+                <button class="icon-btn" data-action="reload" data-index="${index}" type="button" title="刷新">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="frame-wrap">
+              <iframe id="frame-${index}" src="${sourceFor(id)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowfullscreen title="第 ${index + 1} 路直播"></iframe>
+              <div class="overlay-note">完整显示直播画面</div>
+            </div>
+          </article>
+        `;
+      }
+
+      function setLayout(layout) {
+        state.layout = layout;
+        const wall = document.getElementById("wall");
+        wall.className = `wall layout-${layout}`;
+        wall.style.setProperty("--count", String(state.ids.length));
+        wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
+        document.querySelectorAll("[data-layout]").forEach((button) => {
+          button.classList.toggle("active", button.dataset.layout === layout);
+        });
+        requestAnimationFrame(fitFramesToCells);
+        updateUrl();
+      }
+
+      function setFocus(index) {
+        const wall = document.getElementById("wall");
+        const selected = document.querySelector(`.feed[data-index="${index}"]`);
+        if (!selected) return;
+        state.focus = index;
+        wall.insertBefore(selected, wall.firstElementChild);
+        document.querySelectorAll(".feed").forEach((feed) => feed.classList.toggle("active", feed === selected));
+        setLayout("focus");
+      }
+
+      function applyFromInputs() {
+        const slotIds = Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim());
+        const bulkValue = document.getElementById("idsInput").value.trim();
+        const bulkIds = bulkValue.split(",").map((id) => id.trim()).filter(Boolean);
+        state.ids = normalizeIds(bulkIds.length ? bulkIds : slotIds);
+        state.focus = Math.min(state.focus, state.ids.length - 1);
+        state.turnId = document.getElementById("turnInput").value.trim() || "200";
+        renderFeeds();
+        setLayout(state.layout);
+      }
+
+      function reloadFrame(index) {
+        const frame = document.getElementById(`frame-${index}`);
+        if (!frame) return;
+        frame.src = sourceFor(state.ids[index]);
+      }
+
+      function fitFramesToCells() {
+        document.querySelectorAll(".frame-wrap").forEach((wrap) => {
+          const rect = wrap.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const videoWidthForHeight = rect.height * 16 / 9;
+          const embedWidth = Math.min(rect.width, videoWidthForHeight);
+          const embedHeight = Math.max(rect.height, embedWidth * 1.8);
+          wrap.style.setProperty("--embed-width", `${Math.ceil(embedWidth)}px`);
+          wrap.style.setProperty("--embed-height", `${Math.ceil(embedHeight)}px`);
+        });
+      }
+
+      function updateUrl() {
+        const next = new URL(window.location.href);
+        next.searchParams.set("turnId", state.turnId);
+        next.searchParams.set("ids", state.ids.join(","));
+        next.searchParams.set("layout", state.layout);
+        next.searchParams.set("focus", String(state.focus));
+        window.history.replaceState(null, "", next);
+      }
+
+      document.getElementById("applyBtn").addEventListener("click", applyFromInputs);
+      document.getElementById("idsInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") applyFromInputs();
+      });
+      document.getElementById("turnInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") applyFromInputs();
+      });
+
+      document.querySelectorAll("[data-layout]").forEach((button) => {
+        button.addEventListener("click", () => setLayout(button.dataset.layout));
+      });
+
+      document.getElementById("wall").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-action]");
+        if (!button) return;
+        const index = Number(button.dataset.index);
+        if (button.dataset.action === "focus") setFocus(index);
+        if (button.dataset.action === "reload") reloadFrame(index);
+      });
+
+      document.getElementById("wall").addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && event.target.matches("[data-slot]")) applyFromInputs();
+      });
+
+      const observer = new ResizeObserver(() => fitFramesToCells());
+      function observeFrames() {
+        observer.disconnect();
+        document.querySelectorAll(".frame-wrap").forEach((wrap) => observer.observe(wrap));
+      }
+      window.addEventListener("resize", fitFramesToCells);
+
+      setLayout(["focus", "equal", "stack"].includes(state.layout) ? state.layout : "equal");
+      state.focus = Math.min(Math.max(state.focus, 0), state.ids.length - 1);
+      renderFeeds();
+      if (state.layout === "focus") setFocus(state.focus);
+      fitFramesToCells();
+    </script>
+  </body>
+</html>
