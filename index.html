@@ -94,6 +94,43 @@
         backdrop-filter: blur(16px);
       }
 
+      .chrome-reveal-zone {
+        display: none;
+      }
+
+      body.auto-chrome .app {
+        grid-template-rows: 1fr;
+      }
+
+      body.auto-chrome .toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.28);
+        transform: translateY(0);
+        transition:
+          transform 220ms ease,
+          opacity 220ms ease;
+      }
+
+      body.auto-chrome.chrome-hidden .toolbar {
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(calc(-100% - 1px));
+      }
+
+      body.auto-chrome .chrome-reveal-zone {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 29;
+        display: block;
+        height: 4.5rem;
+      }
+
       .brand {
         min-width: 0;
         display: flex;
@@ -553,6 +590,7 @@
 
       <section class="wall layout-equal" id="wall" aria-label="多场比赛直播画面"></section>
     </main>
+    <div class="chrome-reveal-zone" id="chromeRevealZone" aria-hidden="true"></div>
 
     <script>
       (function installOfficialBannerCleaner() {
@@ -1061,18 +1099,98 @@
         true,
       );
 
+      let chromeHideTimer = 0;
+      let chromeMoveTicking = false;
+
+      function canAutoHideChrome() {
+        return (
+          window.innerWidth >= 1180 &&
+          window.innerHeight >= 650 &&
+          !window.matchMedia("(pointer: coarse)").matches
+        );
+      }
+
+      function toolbarHasFocus() {
+        const toolbar = document.querySelector(".toolbar");
+        return toolbar?.contains(document.activeElement);
+      }
+
+      function setChromeVisible(isVisible) {
+        if (!canAutoHideChrome()) {
+          document.body.classList.remove("auto-chrome", "chrome-hidden");
+          return;
+        }
+
+        document.body.classList.add("auto-chrome");
+        document.body.classList.toggle("chrome-hidden", !isVisible);
+        requestAnimationFrame(resizeLiveWindows);
+      }
+
+      function scheduleChromeHide(delay = 2600) {
+        window.clearTimeout(chromeHideTimer);
+        if (!canAutoHideChrome() || toolbarHasFocus()) return;
+        chromeHideTimer = window.setTimeout(() => {
+          if (!toolbarHasFocus()) setChromeVisible(false);
+        }, delay);
+      }
+
+      function showChromeTemporarily(delay = 2600) {
+        setChromeVisible(true);
+        scheduleChromeHide(delay);
+      }
+
+      function updateAutoChrome() {
+        window.clearTimeout(chromeHideTimer);
+        if (!canAutoHideChrome()) {
+          document.body.classList.remove("auto-chrome", "chrome-hidden");
+          resizeLiveWindows();
+          return;
+        }
+
+        setChromeVisible(true);
+        scheduleChromeHide();
+      }
+
+      function handleChromePointerActivity() {
+        if (chromeMoveTicking) return;
+        chromeMoveTicking = true;
+        requestAnimationFrame(() => {
+          chromeMoveTicking = false;
+          showChromeTemporarily();
+        });
+      }
+
+      const toolbar = document.querySelector(".toolbar");
+      toolbar.addEventListener("pointerenter", () => {
+        window.clearTimeout(chromeHideTimer);
+        setChromeVisible(true);
+      });
+      toolbar.addEventListener("pointerleave", () => scheduleChromeHide(1200));
+      toolbar.addEventListener("focusin", () => {
+        window.clearTimeout(chromeHideTimer);
+        setChromeVisible(true);
+      });
+      toolbar.addEventListener("focusout", () => scheduleChromeHide());
+      document.getElementById("chromeRevealZone").addEventListener("pointerenter", () => showChromeTemporarily());
+      document.addEventListener("pointermove", handleChromePointerActivity, { passive: true });
+      document.addEventListener("pointerdown", () => showChromeTemporarily(), { passive: true });
+
       const observer = new ResizeObserver(() => resizeLiveWindows());
       function observeFrames() {
         observer.disconnect();
         document.querySelectorAll(".frame-wrap").forEach((wrap) => observer.observe(wrap));
       }
-      window.addEventListener("resize", resizeLiveWindows);
+      window.addEventListener("resize", () => {
+        updateAutoChrome();
+        resizeLiveWindows();
+      });
       window.addEventListener("resize", () => window.cleanOfficialBanner?.());
 
       setLayout(["focus", "equal", "stack"].includes(state.layout) ? state.layout : "equal");
       state.focus = Math.min(Math.max(state.focus, 0), state.ids.length - 1);
       renderFeeds();
       if (state.layout === "focus") setFocus(state.focus);
+      updateAutoChrome();
       resizeLiveWindows();
       window.cleanOfficialBanner?.();
       trackEvent("live_wall_ready");
