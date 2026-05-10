@@ -211,6 +211,10 @@
         border-color: rgba(215, 63, 49, 0.9);
       }
 
+      [hidden] {
+        display: none !important;
+      }
+
       .wall {
         min-height: 0;
         padding: 0.75rem;
@@ -684,6 +688,7 @@
 
       function renderFeeds() {
         const wall = document.getElementById("wall");
+        if (!supportsFocusLayout() && state.layout === "focus") state.layout = "equal";
         wall.style.setProperty("--count", String(state.ids.length));
         wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
         wall.innerHTML = state.ids.map((id, index) => feedTemplate(id, index)).join("");
@@ -696,13 +701,21 @@
           `当前轮次 ${state.turnId}，${state.ids.length} 场完整显示：${state.ids.join(" / ")}`;
 
         observeFrames();
+        updateLayoutControls();
         requestAnimationFrame(resizeLiveWindows);
         updateUrl();
       }
 
       function feedTemplate(id, index) {
-        const title = index === state.focus ? "主直播" : `第 ${index + 1} 路`;
-        const active = index === state.focus ? " active" : "";
+        const canFocus = supportsFocusLayout();
+        const title = canFocus && index === state.focus ? "主直播" : `第 ${index + 1} 路`;
+        const active = canFocus && index === state.focus ? " active" : "";
+        const focusButton = canFocus
+          ? `
+                <button class="icon-btn" data-action="focus" data-index="${index}" type="button" title="设为主画面">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+                </button>`
+          : "";
         return `
           <article class="feed${active}" data-index="${index}">
             <div class="feed-head">
@@ -716,9 +729,7 @@
               </div>
               <div class="feed-actions">
                 <input data-slot="${index}" value="${id}" inputmode="numeric" aria-label="第 ${index + 1} 路场次 ID" />
-                <button class="icon-btn" data-action="focus" data-index="${index}" type="button" title="设为主画面">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
-                </button>
+                ${focusButton}
                 <button class="icon-btn" data-action="reload" data-index="${index}" type="button" title="刷新">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M3 21v-5h5" /><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
                 </button>
@@ -736,15 +747,14 @@
       }
 
       function setLayout(layout) {
+        if (layout === "focus" && !supportsFocusLayout()) layout = "equal";
         const changed = state.layout !== layout;
         state.layout = layout;
         const wall = document.getElementById("wall");
         wall.className = `wall layout-${layout} count-${state.ids.length}`;
         wall.style.setProperty("--count", String(state.ids.length));
         wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
-        document.querySelectorAll("[data-layout]").forEach((button) => {
-          button.classList.toggle("active", button.dataset.layout === layout);
-        });
+        updateLayoutControls();
         requestAnimationFrame(resizeLiveWindows);
         updateUrl();
         if (changed) {
@@ -753,6 +763,7 @@
       }
 
       function setFocus(index) {
+        if (!supportsFocusLayout()) return;
         const wall = document.getElementById("wall");
         const selected = document.querySelector(`.feed[data-index="${index}"]`);
         if (!selected) return;
@@ -817,6 +828,19 @@
         if (state.layout === "stack") return count;
         if (count === 1 || count === 2 || count === 3) return 1;
         return 2;
+      }
+
+      function supportsFocusLayout() {
+        return state.ids.length <= 3;
+      }
+
+      function updateLayoutControls() {
+        document.querySelectorAll("[data-layout]").forEach((button) => {
+          const isFocus = button.dataset.layout === "focus";
+          button.hidden = isFocus && !supportsFocusLayout();
+          button.disabled = button.hidden;
+          button.classList.toggle("active", button.dataset.layout === state.layout && !button.hidden);
+        });
       }
 
       function resizeLiveWindows() {
