@@ -458,8 +458,18 @@
         </div>
         <div class="controls">
           <label class="field">
-            <span>场次</span>
-            <input id="idsInput" inputmode="numeric" aria-label="场次 ID，用逗号分隔" />
+            <span>起始场次</span>
+            <input id="idsInput" inputmode="numeric" aria-label="起始场次 ID" />
+          </label>
+          <label class="field">
+            <span>场数</span>
+            <select id="countInput" aria-label="比赛场数">
+              <option value="1">1场</option>
+              <option value="2">2场</option>
+              <option value="3" selected>3场</option>
+              <option value="4">4场</option>
+              <option value="6">6场</option>
+            </select>
           </label>
           <label class="field">
             <span>轮次</span>
@@ -492,12 +502,22 @@
           return normalizeIds(ids);
         }
 
-        const first = params.get("scheduleId") || "41";
+        const first = params.get("scheduleId") || params.get("startId") || "41";
         const firstNumber = Number(first);
+        const count = normalizeCount(params.get("count") || "3");
         if (Number.isFinite(firstNumber)) {
-          return [firstNumber, firstNumber + 1, firstNumber + 2].map(String);
+          return generateIds(firstNumber, count);
         }
         return ["41", "42", "43"];
+      }
+
+      function normalizeCount(value) {
+        const count = Number(value);
+        return [1, 2, 3, 4, 6].includes(count) ? count : 3;
+      }
+
+      function generateIds(start, count) {
+        return Array.from({ length: count }, (_, index) => String(start + index));
       }
 
       function normalizeIds(ids) {
@@ -543,7 +563,8 @@
         wall.style.setProperty("--cols", String(gridColumns(state.ids.length)));
         wall.innerHTML = state.ids.map((id, index) => feedTemplate(id, index)).join("");
 
-        document.getElementById("idsInput").value = state.ids.join(",");
+        document.getElementById("idsInput").value = state.ids[0] || "41";
+        document.getElementById("countInput").value = String(normalizeCount(state.ids.length));
         document.getElementById("turnInput").value = state.turnId;
         document.getElementById("status").textContent =
           `当前轮次 ${state.turnId}，${state.ids.length} 场完整显示：${state.ids.join(" / ")}`;
@@ -620,15 +641,24 @@
       }
 
       function applyFromInputs() {
-        const slotIds = Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim());
-        const bulkValue = document.getElementById("idsInput").value.trim();
-        const bulkIds = bulkValue.split(",").map((id) => id.trim()).filter(Boolean);
-        state.ids = normalizeIds(bulkIds.length ? bulkIds : slotIds);
+        const start = Number(document.getElementById("idsInput").value.trim() || state.ids[0] || 41);
+        const count = normalizeCount(document.getElementById("countInput").value);
+        state.ids = Number.isFinite(start)
+          ? generateIds(start, count)
+          : normalizeIds(Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim()));
         state.focus = Math.min(state.focus, state.ids.length - 1);
         state.turnId = document.getElementById("turnInput").value.trim() || "200";
         renderFeeds();
         setLayout(state.layout);
         trackEvent("apply_matches");
+      }
+
+      function applySlotInputs() {
+        state.ids = normalizeIds(Array.from(document.querySelectorAll("[data-slot]")).map((input) => input.value.trim()));
+        state.focus = Math.min(state.focus, state.ids.length - 1);
+        renderFeeds();
+        setLayout(state.layout);
+        trackEvent("apply_matches", { input_mode: "manual_slots" });
       }
 
       function reloadFrame(index) {
@@ -672,6 +702,8 @@
         const next = new URL(window.location.href);
         next.searchParams.set("turnId", state.turnId);
         next.searchParams.set("ids", state.ids.join(","));
+        next.searchParams.set("scheduleId", state.ids[0] || "41");
+        next.searchParams.set("count", String(state.ids.length));
         next.searchParams.set("layout", state.layout);
         next.searchParams.set("focus", String(state.focus));
         window.history.replaceState(null, "", next);
@@ -684,6 +716,7 @@
       document.getElementById("turnInput").addEventListener("keydown", (event) => {
         if (event.key === "Enter") applyFromInputs();
       });
+      document.getElementById("countInput").addEventListener("change", applyFromInputs);
 
       document.querySelectorAll("[data-layout]").forEach((button) => {
         button.addEventListener("click", () => setLayout(button.dataset.layout));
@@ -699,7 +732,7 @@
       });
 
       document.getElementById("wall").addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && event.target.matches("[data-slot]")) applyFromInputs();
+        if (event.key === "Enter" && event.target.matches("[data-slot]")) applySlotInputs();
       });
 
       document.getElementById("wall").addEventListener(
