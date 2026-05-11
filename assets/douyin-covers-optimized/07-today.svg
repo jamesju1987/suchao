@@ -1,18 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1086" height="1448" viewBox="0 0 1086 1448">
-  <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(0,0,0,0)"/><stop offset=".42" stop-color="rgba(0,0,0,.60)"/><stop offset="1" stop-color="rgba(0,0,0,.90)"/></linearGradient></defs>
   <image href="file:///Users/mac/.codex/generated_images/019dc481-3a9d-7572-be63-9c1b02886446/ig_03f7b444273c6ce5016a008479a4a88193869fd258d6409cde.png" width="1086" height="1448" preserveAspectRatio="xMidYMid slice"/>
-  <rect y="1040" width="1086" height="408" fill="url(#fade)"/>
   
-  
-  <g transform="translate(70 1180)">
-    <rect width="946" height="196" rx="30" fill="rgba(4,10,7,.88)" stroke="#f2c14e" stroke-width="4"/>
-    <text x="473" y="47" text-anchor="middle" font-size="34" font-weight="950" fill="#f2c14e" font-family="Arial, 'Microsoft YaHei', sans-serif">5月16日三场</text>
-    <g font-family="Arial, 'Microsoft YaHei', sans-serif" font-size="38" font-weight="950" fill="#fff">
-      <text x="76" y="96">扬州vs镇江</text>
-      <text x="76" y="142">苏州vs连云港</text>
-      <text x="76" y="188">常州vs淮安</text>
-    </g>
-    <rect x="690" y="80" width="190" height="72" rx="22" fill="#d73f31"/>
-    <text x="785" y="127" text-anchor="middle" font-size="34" font-weight="950" fill="#fff" font-family="Arial, 'Microsoft YaHei', sans-serif">收藏</text>
-  </g>
 </svg>
